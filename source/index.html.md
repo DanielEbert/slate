@@ -188,16 +188,25 @@ Take a look at the src/main.cpp and test/test.cpp files in the 'TestPrograms/exe
 The emulator provides a C API to execute user-specified code when the SUT is about to execute a particular instruction.
 This C API is accessed via C code. Open a new terminal and 'cd' into the 'patches' directory. In this directory, there is a file called 'example1.c'. Read the content of this file.
 
-The API to specify user-specified code is patch_instruction(uint32_t address, void *function_pointer, void *function_argument);.
-The 'address' argument is the address of an instruction in the SUT's program space. 
-Prior to emulating this instruction, the emulator calls the function pointed to by 
-the 'function_pointer' argument. Thereby the 'function_argument' argument is passed 
-as a parameter to the 'function_pointer' function.
+The API to specify user-specified code is via the patch_instruction Function:
+
+### patch_instruction Function
+
+`patch_instruction(uint32_t address, void *function_pointer, void *function_argument);`
+
+### patch_instruction Function Arguments
+
+Argument | Type | Description
+- | - | -
+address | uint32_t | The 'address' argument is the address of an instruction in the SUT's program space. 
+function_pointer | void * | Prior to emulating the instruction at address 'address', the emulator calls the function pointed to by the 'function_pointer' argument.
+function_argument | void * | Thereby the 'function_argument' argument is passed as a parameter to the 'function_pointer' function.
+
 The get_symbol_address() function returns the address of an ELF symbol with a given name.
 The 'avr' struct includes references (i.e. pointers) to emulator-internal data structures
 such as the (virual) RAM of the emulated program and to fuzzer-internal data structures
 such as the generated input.
-In this example, it is the ELF symbol for the 'setup()' function.
+In the 'example1.c' file, this is the ELF symbol for the 'setup()' function.
 The print_hello() function is called before the emulator emulates the setup() function.
 
 In the patches directory, run 'make compile=example1.c' to compile the file to a shared object 'example1.c.so'. 'Enable' this file via the LD_PRELOAD environment variable like this: In the TestPrograms/exercise_jump_foo/ directory: 'LD_PRELOAD=../../patches/example1.c.so emu .pio/build/megaatmega2560/firmware.elf'. The output should include the text 'Hello'.
@@ -212,7 +221,7 @@ cd patches
 make compile=exercise_parse.c
 ~~~
 
-> Remove SUT code that overwrites fuzz_input and fuzz_input_length, then recompile and run:
+> Remove SUT code that overwrites fuzz_input and fuzz_input_length, then recompile and run via:
 
 ~~~bash
 cd TestPrograms/exercise_jump_foo
@@ -224,15 +233,15 @@ The goal of this exercise is to convert the unit test from the previous exercise
 
 At the moment, the parse(char &#x2A;input, uint16_t input_length) function is tested with the string 'Hi?'. In this exercise, we want to test this parse function with 'random' inputs. The goal is to find an input that crashes the software under test (SUT) via fuzzing.
 
-The fuzzer can generate inputs for the parse function. We need to replace the fuzz_input string and the fuzz_input_length of this input with the input and input length data from the fuzzer. The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input. To enable this, the fuzzer provides a C API which we can use to override the content of the fuzz_input and fuzz_input_length variables with the generated input from the fuzzer at runtime.
+The fuzzer can generate inputs for the parse function. We need to replace the fuzz_input string and the fuzz_input_length with the input and input length from the fuzzer. The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input and its length. To do this, we can use the C API to override the content of the fuzz_input and fuzz_input_length variables with the generated input from the fuzzer.
 
-We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: write_fuzz_input_global. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 'patch_instruction(get_symbol_address("setup", avr), write_fuzz_input_global, avr);'. If you are interested in the internals of these functions, you find the implementation for the write_fuzz_input_global function in the 'simavr/simavr/sim/fuzz_patch_instructions.c' file.
+We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: write_fuzz_input_global. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 'patch_instruction(get_symbol_address("setup", avr), write_fuzz_input_global, avr);'. If you are interested in the internals of these functions, you find their implementations in the 'simavr/simavr/sim/fuzz_patch_instructions.c' file.
 
 The unit test calls the parse function once. We want to repeatetly call the parse function. The user API function fuzz_reset restarts the emulated program and generates a new input. We can reset the SUT after the RUN_TEST(test_parse); function returns, i.e. when UNITY_END() is called. UNITY_END is a compiler macro for UnityEnd ('#define UNITY_END() UnityEnd()'). This means there is no 'UNITY_END' ELF symbol. We must use the 'UnityEnd' ELF symbol instead to get the symbol address.
 
-In addition, we need to remove the SUT code that writes to the fuzz_input and fuzz_input_length variables. To do this, delete all lines from 'fuzz_input[0] = 'H';' to 'fuzz_input_length = 3;' in the 'TestPrograms/exercise_jump_foo/test/test.cpp' file. Recompile the unit test source code to update the ELF executable.
+In addition, we need to remove the SUT code that writes to the fuzz_input and fuzz_input_length variables. This is your task: Delete all lines from 'fuzz_input[0] = 'H';' to 'fuzz_input_length = 3;' in the 'TestPrograms/exercise_jump_foo/test/test.cpp' file. Recompile the unit test source code to update the ELF executable.
 
-A C API file for the parse function with the write_fuzz_input_global and fuzz_reset patches is 'patches/exercise_parse.c'. Compile this file to a shared object and run the unit test in the emulator with this shared object enabled. If that was successful, quit the emulator and move on to the next exercise below.
+There is already a C API file for the parse function with the write_fuzz_input_global and fuzz_reset patches in 'patches/exercise_parse.c'. Compile this file to a shared object and run the unit test in the emulator with this shared object enabled. If that was successful, quit the emulator and move on to the next exercise below.
 
 ## Fuzzing Statistics
 
@@ -243,18 +252,18 @@ cd server
 ./main_loop
 ~~~
 
-> Start the emulator with exercise_parse.c.so shared object and the TestPrograms/exercise_jump_foo program.
+> Start the emulator with exercise_parse.c.so shared object and the TestPrograms/exercise_jump_foo program with a maximum input length of 6.
 
 ~~~bash
 cd TestPrograms/exercise_jump_foo
-LD_PRELOAD=../../patches/exercise_parse.c.so emu .pio/build/megaatmega2560/firmware.elf
+LD_PRELOAD=../../patches/exercise_parse.c.so emu --max_input_length 6 .pio/build/megaatmega2560/firmware.elf
 ~~~
 
 > Examine the files in the current\_run directory.
 
 The fuzzer can send updates about the current fuzzing campaign to a UI server. Open a new Terminal and run 'server/main_loop' to start this UI server.
 
-Start the emulator with exercise_parse.c.so shared object and the TestPrograms/exercise_jump_foo program.
+Start the emulator with exercise_parse.c.so shared object and the TestPrograms/exercise_jump_foo program. Additionally, specify a maximum input length of 6 via the 'emu' command line argument --max_input_length like so: 'LD_PRELOAD=../../patches/exercise_parse.c.so emu --max_input_length 6 .pio/build/megaatmega2560/firmware.elf'. The default maximum input length is 128. In this exercise, setting this maximum to 6 increases the code coverage faster.
 
 The UI server creates the following directory structure:
 
@@ -268,6 +277,59 @@ current\_run/fuzer\_stats | Statistics about the fuzzing run, e.g. fuzzer runtim
 current\_run/previous\_interesting\_inputs/ | Directory that contains all inputs that increased the code coverage.
 previous\_runs/ | If you restart the emulator, the current\_run directory is moved into the previous\_runs/ directory.
 
+You don't have to do this, but if you were tasked to fuzz test a large code base, one goal is to reach a high code coverage. The primary goal of the fuzzer is to find bugs. But if your fuzzer did not find any bugs, how do you know how the fuzzer is doing? Code coverage can be an indication for how well the fuzzer is doing. High code coverage is beneficial in fuzzing, because a fuzzer can only find bugs in code that is executed and because there is strong empirical evidence that a fuzzer with higher code coverage discovers more bugs in the SUT in a given time window. If for example the fuzzer has not increased the code coverage in some time, a fuzz tester can help the fuzzer in reaching a higher code coverage faster. Different fuzzers provide different ways of how this can be achieved. Typical options include for example creating seeds for the mutator (we'll do this later) and updating or adding a new entrypoint for the inputs from the fuzzer (e.g. a new 'unit' test that calls a function that previously was not covered/tested by the fuzzer). 
+
+Due to the random nature of fuzzing, the fuzzer can find an input that crashes the SUT sometimes in 2 minutes and sometimes it takes 20 minutes. If your fuzzer instance did not find the bug by now, its OK. Quit the emulator and move on to the next exercise.
+
+## Fuzzing a SUT with strcpy
+
+Your task is to fuzz test the process_input function in the TestPrograms/exercise_strcpy project. The fuzzer should quickly trigger a buffer overflow.
+
+<details style="margin: 20px; width: 48%">
+  <summary>Hint 1</summary>
+<p style="margin: 10px">We need two things: 1) A test for the process_input function in the test/test.cpp file. 2) A C API shared object file to 'inject' the input from the fuzzer and to reset the emulator when the test completed. Optionally you can also specify command line arguments for 'emu' such as the --max_input_length. The default --max_input_length is 128, which is a good value for this exercise. The fuzzer should trigger the bug in less than 30 seconds.</p>
+</details>
+
+<details style="margin: 20px; width: 48%">
+  <summary>Hint 2</summary>
+<p style="margin: 10px">Compare the (incomplete) source code from this exercise to the (complete) source code from the previous exercise. What is the same and what is different? We can reuse code from the previous exercise, for example the shared object for the C API and more.</p>
+</details>
+
+<details style="margin: 20px; width: 48%">
+  <summary>Possible Solution</summary>
+<p style="margin: 10px">A possible solution is in the 'TestPrograms/exercise_strcpy_solution' directory. A test was added in the test/test.cpp file that calls the process_input function with the global variable fuzz_input. You can reuse the shared object 'patches/exercise_parse.c.so' from the previous exercise. We need to let a --max_input_length greater than 40 to trigger the bug, so the default value of 128 is good. The command to run the emulator in this case is: 'LD_PRELOAD=../../simavr/simavr/sim/patches/exercise_parse.c.so emu .pio/build/megaatmega2560/firmware.elf'.</p>
+<p style="margin: 10px">An alternative solution is to not use the unit testing framework. We could modify the src/main.cpp code and add a setup function that calls the process_input function. In this case the pio workflow changes, because we are no longer using the Unit Test Framework with 'pio test ...'. In larger projects where you maybe do not know the code base very well, it is often easier to 'convert' a unit test to a fuzz test, because the unit test includes code that sets up the environment so that the function that you want to test does not immediatetly return because some state is not setup.</p>
+</details>
+
+## [Optional] Investigate bugs with a debugger 
+
+> Run the emulator once with the content of file TODO as the input from the fuzzer:
+
+~~~bash
+cd TestPrograms/exercise_strcpy
+LD_PRELOAD=../../patches/exercise_parse.c.so emu --run_once_with ../exercise_strcpy_solution/crashing_input .pio/build/megaatmega2560/firmware.elf
+~~~
+
+If the fuzzer finds a bug and you cannot identify the reason for this bug via e.g. the stack trace, you may have to investigate the bug with a debugger. The emulator has support for the GDB debugger.
+
+The current\_run/crashing\_inputs/ from the previous exercise should include an input that triggered a buffer overflow in the TestPrograms/exercise_strcpy project. If this is not the case, use the TODO file instead. This file contains an input that triggers this buffer overflow.
+
+The emulator has a command line option '--run_once_with X' where X is path to a file. With this option, the emulator runs once. The input is the content of the specified file X.
+
+gdb start, target remote
+emu start with --gdb flag
+
+## Fuzzing arduino-json
+
+promotes seeds
+let them think where to get seeds from
+
+- current\_run/previous\_interesting\_inputs/ inps that fuzzer found from a prev run
+- Google example inputs. For example there are Github repositories that have seeds for fuzzing
+- manual src code review
+- static analysis tools e.g. 'strings' or symbolic execution 
+- dynamic analysis tools concolic execution
+
 # Emulator/Fuzzer Command Line Arguments and Environment Variables
 
 Names that start with '--' are command line arguments. Otherwise, it is an environment variable. 
@@ -276,7 +338,8 @@ Name | Description
 - | - | - | -
 LD\_PRELOAD | Path to your compiled software under test configuration file.
 --seeds | Path to a directory. For every file in this directory, the content of this file is one seed.
---run\_once\_with | Path to a file. Runs the emulator once/ The input is the content of the specified file.
+--run\_once\_with | Path to a file. Runs the emulator once. The input is the content of the specified file.
 --timeout | One input times out when more than the specified 'timeout' number of clock cycles has passed since the emulator started or reset.
 --dont\_report\_timeouts | This is a flag. If this flag is not set, a timeout is treated as a bug, which means that the input that timed out is stored. If this flag is set, timeouts are not treated as bugs.
 --mutator\_so\_path | When you want to use another mutator. The default mutator is the mutator from libFuzzer.
+--gdb | Enable built-in support for the GDB debugger.
