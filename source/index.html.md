@@ -185,7 +185,11 @@ OK.
 ~~~
 
 
-Take a look at the src/main.cpp and test/test.cpp files in the 'TestPrograms/exercise_jump_foo/' directory. Get a quick overview of what the program is doing. After that, compile and run the unit test in the emulator. Exit the emulation via &lt;CTRL&gt; + C.
+<ol>
+<li>Take a look at the src/main.cpp and test/test.cpp files in the 'TestPrograms/exercise_jump_foo/' directory. Get a quick overview of what the program is doing.</li>
+<li>After that, compile and run the unit test in the emulator.</li>
+<li>Exit the emulation via &lt;CTRL&gt; + C.</li>
+</ol>
 
 The emulator provides a C API to execute user-specified code when the SUT is about to execute a particular instruction.
 This C API is accessed via C code. Open a new terminal and 'cd' into the 'patches' directory. In this directory, there is a file called 'example1.c'. Read the content of this file.
@@ -204,11 +208,10 @@ address | uint32_t | The 'address' argument is the address of an instruction in 
 function_pointer | void * | Prior to emulating the instruction at address 'address', the emulator calls the function pointed to by the 'function_pointer' argument.
 function_argument | void * | Thereby the 'function_argument' argument is passed as a parameter to the 'function_pointer' function.
 
-The get_symbol_address() function returns the address of an ELF symbol with a given name.
-The 'avr' struct includes references (i.e. pointers) to emulator-internal data structures
+The `get_symbol_address()` function returns the address of an ELF symbol with a given name. The second argument for this function is always the 'avr' struct. This 'avr' struct includes references (i.e. pointers) to emulator-internal data structures
 such as the (virual) RAM of the emulated program and to fuzzer-internal data structures
 such as the generated input.
-In the 'example1.c' file, this is the ELF symbol for the 'setup()' function.
+In the 'example1.c' file, the get_symbol_address() function returns the address of the ELF symbol for the setup() function.
 The print_hello() function is called before the emulator emulates the setup() function.
 
 In the patches directory, run 'make compile=example1.c' to compile the file to a shared object 'example1.c.so'. 'Enable' this file via the LD_PRELOAD environment variable like this: In the TestPrograms/exercise_jump_foo/ directory: 'LD_PRELOAD=../../patches/example1.c.so emu .pio/build/megaatmega2560/firmware.elf'. The output should include the text 'Hello'.
@@ -235,14 +238,14 @@ The goal of this exercise is to convert the unit test from the previous exercise
 
 At the moment, the parse(char &#x2A;input, uint16_t input_length) function is tested with the string 'Hi?'. In this exercise, we want to test this parse function with 'random' inputs. The goal is to find an input that crashes the software under test (SUT) via fuzzing.
 
-The fuzzer can generate inputs for the parse function. We need to replace the fuzz_input string and the fuzz_input_length with the input and input length from the fuzzer. The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input and its length. To do this, we can use the C API to override the content of the fuzz_input and fuzz_input_length variables with the generated input from the fuzzer.
+The fuzzer can generate inputs for the parse function. We need to replace the fuzz_input string and the fuzz_input_length with the input and input length from the fuzzer. The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input and its length. To do this, we can use the C API to override the content of the fuzz_input and fuzz_input_length variables with the generated input and its length from the fuzzer.
 
-We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: write_fuzz_input_global. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 
+We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: `write_fuzz_input_global`. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 
 `patch_instruction(get_symbol_address("setup", avr), write_fuzz_input_global, avr);` 
 
 If you are interested in the internals of these functions, you find their implementations in the 'simavr/simavr/sim/fuzz_patch_instructions.c' file.
 
-The unit test calls the parse function once. We want to repeatetly call the parse function. The user API function fuzz_reset restarts the emulated program and generates a new input. We can reset the SUT after the RUN_TEST(test_parse); function returns, i.e. when UNITY_END() is called. UNITY_END is a compiler macro for UnityEnd ('#define UNITY_END() UnityEnd()'). This means there is no 'UNITY_END' ELF symbol. We must use the 'UnityEnd' ELF symbol instead to get the symbol address.
+The unit test calls the parse function once. We want to repeatetly call the parse function. The user API function `fuzz_reset` restarts the emulated program and generates a new input. We can reset the SUT after the RUN_TEST(test_parse); function returns, i.e. when UNITY_END() is called. UNITY_END is a compiler macro for UnityEnd ('#define UNITY_END() UnityEnd()'). This means there is no 'UNITY_END' ELF symbol. We must use the 'UnityEnd' ELF symbol instead to get the symbol address.
 
 In addition, we need to remove the SUT code that writes to the fuzz_input and fuzz_input_length variables. This is your task: 
 
@@ -365,14 +368,41 @@ The buffer overflow occurs because strcpy writes more than 40 bytes to a buffer 
 
 ## Fuzzing ArduinoJson
 
-promotes seeds
-let them think where to get seeds from
+> Fuzzing with seeds example:
 
-- Google example inputs. For example there are Github repositories that have seeds for fuzzing
-- current\_run/previous\_interesting\_inputs/ inps that fuzzer found from a prev run
-- manual src code review
-- static analysis tools e.g. 'strings' or symbolic execution 
-- dynamic analysis tools concolic execution
+~~~bash
+mkdir seeds
+echo 'A' > seeds/1
+LD_PRELOAD=../../patches/exercise_parse.c.so emu --seeds seeds .pio/build/megaatmega2560/firmware.elf
+~~~
+
+Examine the files in the TestPrograms/exercise_arduinojson directory. Write a fuzz test for the ArduinoJson library. You can, for example, convert the unit test in exercise_arduinojson/test/test.cpp file to a fuzz test.
+
+<aside class="notice">
+ArduinoJson is a widely used and well tested library. You will very likely not find bugs.
+</aside>
+
+<details style="margin: 20px; width: 48%">
+  <summary>Hint 1</summary>
+<p style="margin: 10px">If the input is randomly generated, assertions like 'TEST_ASSERT(ret == DeserializationError::Ok);' will not hold anymore. With the LD_PRELOAD file exercise_parse.c.so the fuzzer does not report failed assertions. For this reason, failed assertions do not matter in this case. In practice, you would remove assertions in your unit test that do not hold for all possible generated inputs and you would report inputs that trigger failed assertions.</p>
+</details>
+
+<details style="margin: 20px; width: 48%">
+  <summary>Click here for a possible solution to the fuzz test</summary>
+<p style="margin: 10px">TODO</p>
+</details>
+
+[Optional] You can specify seeds for the fuzzer with the emulator command line flag '--seeds X' where X is the path to a directory. For every file in this directory, the content of this file is one seed. The mutator/fuzzer will modify seeds to generate new input. Good seeds will result in higher code coverage faster. Good seeds are often inputs that reach a higher code coverage. Think about where you can get seeds from.
+
+<details style="margin: 20px; width: 48%">
+  <summary>Solution - Click here to show possible sources for seeds</summary>
+<ol>
+<li>Google example inputs. For example there are Github repositories like <a href="https://github.com/dvyukov/go-fuzz-corpus/tree/master/json/corpus">this</a> that have seeds for fuzzing.</li>
+<li>Reuse interesting inputs that the fuzzer found in a previous test of the same or a similar program. These are in the current\_run/previous\_interesting\_inputs/ directory.</li>
+<li>You can manually review the code and identify roadblocks. Roadblocks are input checks that no input from the fuzzer has passed yet. You can add inputs to the seeds that pass this roadblock.</li>
+<li>There are also tools that generate inputs. For example concolic execution tools such as KLEE can output inputs that reach deeper paths in a program. There are fuzzers that have a built-in concolic execution tool. These are called hybrid fuzzers.</li>
+</details>
+
 
 # Emulator/Fuzzer Command Line Arguments and Environment Variables
 
