@@ -15,11 +15,9 @@ code_clipboard: true
 
 In this tutorial you will learn how to fuzz test software that runs in an emulator.
 
-If you are unfamiliar with fuzzing, you can read section 2.1 of this TODO paper.
+If you are unfamiliar with mutation-based fuzzing, I would recommend that read section 2.1 of this TODO paper to get an idea of what fuzzing and mutation-based fuzzing is.
 
 Prerequisites: Beginner-level experience with C/C++ and the Unix shell.
-
-TODO: check service up and running?
 
 TODO: reference relevant sections of my paper
 
@@ -102,9 +100,13 @@ This exercise shows you an example PlatformIO project setup, how PlatformIO-base
 
 <ol>
 <li>Take a look at the files in the 'TestPrograms/exercise_unit_test/' directory and its subdirectories.
-<li>Can you already see how PlatformIO-based Unit Tests are compiled and emulated? Compile and run the unit tests in the emulator. You do NOT have to write source code. The links below may help you. You can click on the 'Hint ...' buttons below to display hints.</li>
+<li>Can you already see how PlatformIO-based Unit Tests are compiled and emulated? Compile and run the unit tests in the emulator.</li>
 <li>Exit the emulation via &lt;CTRL&gt; + C</li>
 </ol>
+
+<aside class="notice">
+The links below may help you. You can click on the 'Hint ...' buttons below to display hints.
+</aside>
 
 **Links** <br>
 [platformio.ini](https://docs.platformio.org/en/latest/projectconf/index.html) <br>
@@ -214,13 +216,6 @@ In the patches directory, run 'make compile=example1.c' to compile the file to a
 
 ## Introduction to Fuzzing
 
-> Compile the shared object:
-
-~~~bash
-cd patches
-make compile=exercise_parse.c
-~~~
-
 > Remove SUT code that overwrites fuzz_input and fuzz_input_length, then recompile and run via:
 
 ~~~bash
@@ -229,19 +224,34 @@ make
 LD_PRELOAD=../../patches/exercise_parse.c.so emu .pio/build/megaatmega2560/firmware.elf
 ~~~
 
+> Compile the shared object:
+
+~~~bash
+cd patches
+make compile=exercise_parse.c
+~~~
+
 The goal of this exercise is to convert the unit test from the previous exercise to a fuzz test and fuzz the program in the emulator.
 
 At the moment, the parse(char &#x2A;input, uint16_t input_length) function is tested with the string 'Hi?'. In this exercise, we want to test this parse function with 'random' inputs. The goal is to find an input that crashes the software under test (SUT) via fuzzing.
 
 The fuzzer can generate inputs for the parse function. We need to replace the fuzz_input string and the fuzz_input_length with the input and input length from the fuzzer. The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input and its length. To do this, we can use the C API to override the content of the fuzz_input and fuzz_input_length variables with the generated input from the fuzzer.
 
-We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: write_fuzz_input_global. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 'patch_instruction(get_symbol_address("setup", avr), write_fuzz_input_global, avr);'. If you are interested in the internals of these functions, you find their implementations in the 'simavr/simavr/sim/fuzz_patch_instructions.c' file.
+We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: write_fuzz_input_global. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 
+`patch_instruction(get_symbol_address("setup", avr), write_fuzz_input_global, avr);` 
+
+If you are interested in the internals of these functions, you find their implementations in the 'simavr/simavr/sim/fuzz_patch_instructions.c' file.
 
 The unit test calls the parse function once. We want to repeatetly call the parse function. The user API function fuzz_reset restarts the emulated program and generates a new input. We can reset the SUT after the RUN_TEST(test_parse); function returns, i.e. when UNITY_END() is called. UNITY_END is a compiler macro for UnityEnd ('#define UNITY_END() UnityEnd()'). This means there is no 'UNITY_END' ELF symbol. We must use the 'UnityEnd' ELF symbol instead to get the symbol address.
 
-In addition, we need to remove the SUT code that writes to the fuzz_input and fuzz_input_length variables. This is your task: Delete all lines from 'fuzz_input[0] = 'H';' to 'fuzz_input_length = 3;' in the 'TestPrograms/exercise_jump_foo/test/test.cpp' file. Recompile the unit test source code to update the ELF executable.
+In addition, we need to remove the SUT code that writes to the fuzz_input and fuzz_input_length variables. This is your task: 
 
-There is already a C API file for the parse function with the write_fuzz_input_global and fuzz_reset patches in 'patches/exercise_parse.c'. Compile this file to a shared object and run the unit test in the emulator with this shared object enabled. If that was successful, quit the emulator and move on to the next exercise below.
+<ol>
+<li>Delete all lines from 'fuzz_input[0] = 'H';' to 'fuzz_input_length = 3;' in the 'TestPrograms/exercise_jump_foo/test/test.cpp' file.</li>
+<li>Recompile the unit test source code to update the ELF executable.</li>
+<li>There is already a C API file for the parse function with the write_fuzz_input_global and fuzz_reset patches in 'patches/exercise_parse.c'. Compile this file to a shared object and run the unit test in the emulator with this shared object enabled.
+<li>If that was successful, exit the emulation via &lt;CTRL&gt; + C</li>
+</ol>
 
 ## Fuzzing Statistics
 
@@ -281,6 +291,10 @@ You don't have to do this, but if you were tasked to fuzz test a large code base
 
 Due to the random nature of fuzzing, the fuzzer can find an input that crashes the SUT sometimes in 2 minutes and sometimes it takes 20 minutes. If your fuzzer instance did not find the bug by now, its OK. Quit the emulator and move on to the next exercise.
 
+<aside class="notice">
+You do NOT have to restart the UI server. If you stop and start a new emulator process, the UI server will create a new current_run directory for you. The UI server supports one concurrent connection. You can run multiple emulator processes concurrently, but the UI server will only create the current_run directory for the emulator process that was started first. Because the fuzzer does not stop, if you are finished with an exercise, you should manually stop the emulator process so that the fuzzer run for the following exercise updates the current_run directory.
+</aside>
+
 ## Fuzzing a SUT with strcpy
 
 Your task is to fuzz test the process_input function in the TestPrograms/exercise_strcpy project. The fuzzer should quickly trigger a buffer overflow.
@@ -303,29 +317,59 @@ Your task is to fuzz test the process_input function in the TestPrograms/exercis
 
 ## [Optional] Investigate bugs with a debugger 
 
-> Run the emulator once with the content of file TODO as the input from the fuzzer:
+> Run the emulator once with the content of file crashing_input as the input from the fuzzer:
 
 ~~~bash
 cd TestPrograms/exercise_strcpy
-LD_PRELOAD=../../patches/exercise_parse.c.so emu --run_once_with ../exercise_strcpy_solution/crashing_input .pio/build/megaatmega2560/firmware.elf
+LD_PRELOAD=../../patches/exercise_parse.c.so emu --run_once_with ../exercise_strcpy_solution/previous_run/crashing_inputs/stack_buffer_overflow_f50 .pio/build/megaatmega2560/firmware.elf
 ~~~
 
-If the fuzzer finds a bug and you cannot identify the reason for this bug via e.g. the stack trace, you may have to investigate the bug with a debugger. The emulator has support for the GDB debugger.
+> Additionally, start the GDB server and wait for a remote to connect:
 
-The current\_run/crashing\_inputs/ from the previous exercise should include an input that triggered a buffer overflow in the TestPrograms/exercise_strcpy project. If this is not the case, use the TODO file instead. This file contains an input that triggers this buffer overflow.
+~~~bash
+cd TestPrograms/exercise_strcpy
+LD_PRELOAD=../../patches/exercise_parse.c.so emu --run_once_with ../exercise_strcpy_solution/previous_run/crashing_inputs/stack_buffer_overflow_f50 --gdb .pio/build/megaatmega2560/firmware.elf
+~~~
 
-The emulator has a command line option '--run_once_with X' where X is path to a file. With this option, the emulator runs once. The input is the content of the specified file X.
+> Start GDB
 
-gdb start, target remote
-emu start with --gdb flag
+~~~bash
+avr-gdb .pio/build/megaatmega2560/firmware.elf
+~~~
 
-## Fuzzing arduino-json
+> In avr-gdb, run the following to connect to the remote:
+
+~~~bash
+target remote :1234
+break *0xf50
+continue
+info registers
+x/10i $pc-10
+~~~
+
+If the fuzzer finds a bug and you cannot identify the reason for this bug via e.g. the stack trace, you may have to investigate the bug with a debugger. The emulator has support for the GDB debugger. In this exercise we will investigate the reason for the buffer overflow from the previous exercise.
+
+The current\_run/crashing\_inputs/ from the previous exercise should include an input that triggered a buffer overflow in the TestPrograms/exercise_strcpy project. If the fuzzer did not find the buffer overflow, use the file stack_buffer_overflow_f50 in the TestPrograms/exercise_strcpy_solution/previous_run/crashing_inputs directory instead. This file contains an input that triggers this buffer overflow.
+
+The emulator has a command line argument '--run_once_with X' where X is path to a file. With this option, the emulator runs once. The input is the content of the specified file X.
+
+In addition, the emulator starts a GDB server when the emulator is run with the '--gdb' command line argument. The GDB server waits until a client connects and listens for commands from the client.
+
+Your task: Run the emulator once with the content of file crashing_input as the input from the fuzzer and tell the emulator process to start a GDB server. (The command is on the right side.) The emulator output should include the text 'avr_gdb_init listening on port 1234'. 
+
+You can now connect to the GDB server. First, opening a new terminal. Then, run the command 'avr-gdb X', where X is the path to the ELF executable that the emulator is currently emulating. In avr-gdb, connect via the gdb command 'target remote :1234'.
+
+At this moment, the emulated program is stopped at the first instruction of this emulated program and you can debug this program as if it is running locally. For example, we could set a breakpoint at the instruction where the crash is detected with 'break \*0xf50'. Then, we could continue the exection with the gdb command 'continue' in the avr-gdb terminal and output more information, for example the content of the registers with 'info registers' or examine the machine code instructions with 'x/10i $pc-10'. These machine code instructions are from the AVR instruction set architecture.
+
+The buffer overflow occurs because strcpy writes more than 40 bytes to a buffer with a size of 40 bytes. The instruction at address 0xf50 overwrites the return address that is stored on the stack. The instruction at this address is 'st X+, r0', which stores the content of register r0 in X. X points to the return address on the stack. Overriding the return address is illegal.
+
+## Fuzzing ArduinoJson
 
 promotes seeds
 let them think where to get seeds from
 
-- current\_run/previous\_interesting\_inputs/ inps that fuzzer found from a prev run
 - Google example inputs. For example there are Github repositories that have seeds for fuzzing
+- current\_run/previous\_interesting\_inputs/ inps that fuzzer found from a prev run
 - manual src code review
 - static analysis tools e.g. 'strings' or symbolic execution 
 - dynamic analysis tools concolic execution
