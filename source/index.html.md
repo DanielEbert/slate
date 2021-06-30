@@ -236,23 +236,25 @@ make compile=exercise_parse.c
 
 The goal of this exercise is to convert the unit test from the previous exercise to a fuzz test and fuzz the program in the emulator.
 
-At the moment, the parse(char &#x2A;input, uint16_t input_length) function is tested with the string 'Hi?'. In this exercise, we want to test this parse function with 'random' inputs. The goal is to find an input that crashes the software under test (SUT) via fuzzing.
+In fuzzing, the software under test (SUT) is **repeatedly** executed with **inputs from the fuzzer**. In its current state, the SUT (i.e. the `parse(char &#x2A;input, uint16_t input_length)` function) is executed **once** with an **input from the unit test** (i.e. the string "Hi?". Thus, we need to:
+<ol>
+<li>Replace the "Hi?" string in the fuzz_input variable and the fuzz_input_length value with the input and input length from the fuzzer.</li>
+<li>Repeatedly call the parse function.</li>
+</ol>
 
-The fuzzer can generate inputs for the parse function. We need to replace the fuzz_input string and the fuzz_input_length with the input and input length from the fuzzer. The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input and its length. To do this, we can use the C API to override the content of the fuzz_input and fuzz_input_length variables with the generated input and its length from the fuzzer.
+The fuzzer runs 'outside' of the emulation. We must specify where the fuzzer should write the input and its length. To do this, we can use the C API to override the content of the fuzz_input and fuzz_input_length variables with the generated input and its length from the fuzzer.
 
 We could write our own function that copies the input and length from the fuzzer to the fuzz_input and fuzz_input_length variables of the SUT. However, there is a function from the C API to do exactly that: `write_fuzz_input_global`. This function requires the 'avr' argument via function parameters. For example, if we want to write the fuzz_input and fuzz_input_length variables when the SUT is about to call the setup function, we can call the patch_instruction function like this: 
 `patch_instruction(get_symbol_address("setup", avr), write_fuzz_input_global, avr);` 
 
-If you are interested in the internals of these functions, you find their implementations in the 'simavr/simavr/sim/fuzz_patch_instructions.c' file.
-
-The unit test calls the parse function once. We want to repeatetly call the parse function. The user API function `fuzz_reset` restarts the emulated program and generates a new input. We can reset the SUT after the RUN_TEST(test_parse); function returns, i.e. when UNITY_END() is called. UNITY_END is a compiler macro for UnityEnd ('#define UNITY_END() UnityEnd()'). This means there is no 'UNITY_END' ELF symbol. We must use the 'UnityEnd' ELF symbol instead to get the symbol address.
+The unit test calls the parse function once. We want to repeatedly call the parse function. The user API function `fuzz_reset` restarts the emulated program and generates a new input. We can reset the SUT after the test_parse function returns, for example when the UnityConcludeTest function is called. UnityConcludeTest() is called shortly after each unit test returns. 
 
 In addition, we need to remove the SUT code that writes to the fuzz_input and fuzz_input_length variables. This is your task: 
 
 <ol>
 <li>Delete all lines from 'fuzz_input[0] = 'H';' to 'fuzz_input_length = 3;' in the 'TestPrograms/exercise_jump_foo/test/test.cpp' file.</li>
 <li>Recompile the unit test source code to update the ELF executable.</li>
-<li>There is already a C API file for the parse function with the write_fuzz_input_global and fuzz_reset patches in 'patches/exercise_parse.c'. Compile this file to a shared object and run the unit test in the emulator with this shared object enabled.
+<li>There is already a C API file for the parse function with the write_fuzz_input_global and fuzz_reset patches in 'patches/exercise_parse.c'. Examine this file, compile this file to a shared object, and run the unit test in the emulator with this shared object enabled.
 <li>If that was successful, exit the emulation via &lt;CTRL&gt; + C</li>
 </ol>
 
@@ -315,7 +317,7 @@ Your task is to fuzz test the process_input function in the TestPrograms/exercis
 <details style="margin: 20px; width: 48%">
   <summary>Possible Solution</summary>
 <p style="margin: 10px">A possible solution is in the 'TestPrograms/exercise_strcpy_solution' directory. A test was added in the test/test.cpp file that calls the process_input function with the global variable fuzz_input. You can reuse the shared object 'patches/exercise_parse.c.so' from the previous exercise. We need to let a --max_input_length greater than 40 to trigger the bug, so the default value of 128 is good. The command to run the emulator in this case is: 'LD_PRELOAD=../../simavr/simavr/sim/patches/exercise_parse.c.so emu .pio/build/megaatmega2560/firmware.elf'.</p>
-<p style="margin: 10px">An alternative solution is to not use the unit testing framework. We could modify the src/main.cpp code and add a setup function that calls the process_input function. In this case the pio workflow changes, because we are no longer using the Unit Test Framework with 'pio test ...'. In larger projects where you maybe do not know the code base very well, it is often easier to 'convert' a unit test to a fuzz test, because the unit test includes code that sets up the environment so that the function that you want to test does not immediatetly return because some state is not setup.</p>
+<p style="margin: 10px">An alternative solution is to not use the unit testing framework. We could modify the src/main.cpp code and add a setup function that calls the process_input function. In this case the pio workflow changes, because we are no longer using the Unit Test Framework with 'pio test ...'. In larger projects where you maybe do not know the code base very well, it is often easier to 'convert' a unit test to a fuzz test, because the unit test describes the context in which a given function is typically called. For example, the unit test code may set up the environment so that the function that you want to test does not immediatetly return because some state is not setup or because the SUT developers made heavy use of <a href="https://en.wikipedia.org/wiki/Design_by_contract">design-by-contract</a>.</p>
 </details>
 
 ## [Optional] Investigate bugs with a debugger 
@@ -384,12 +386,12 @@ ArduinoJson is a widely used and well tested library. You will very likely not f
 
 <details style="margin: 20px; width: 48%">
   <summary>Hint 1</summary>
-<p style="margin: 10px">If the input is randomly generated, assertions like 'TEST_ASSERT(ret == DeserializationError::Ok);' will not hold anymore. With the LD_PRELOAD file exercise_parse.c.so the fuzzer does not report failed assertions. For this reason, failed assertions do not matter in this case. In practice, you would remove assertions in your unit test that do not hold for all possible generated inputs and you would report inputs that trigger failed assertions.</p>
+<p style="margin: 10px">If the input is randomly generated, assertions like 'TEST_ASSERT(ret == DeserializationError::Ok);' will not hold anymore for all possible inputs. With the LD_PRELOAD file exercise_parse.c.so the fuzzer does not report failed assertions. For this reason, failed assertions do not matter in this case. In practice, you would remove assertions in your unit test that do not hold for all possible generated inputs and you would report inputs that trigger failed assertions.</p>
 </details>
 
 <details style="margin: 20px; width: 48%">
   <summary>Click here for a possible solution to the fuzz test</summary>
-<p style="margin: 10px">TODO</p>
+<p style="margin: 10px">One possible solution (many solutions are valid) is in the TestPrograms/exercise_arduinojson_solution directory. The input variable is replaced with a global fuzz_input variable. fuzz_input must be a global variable so that there is an ELF symbol for this variable. Via the ELF symbol, the emulator knows the constant address of the fuzz_input variable. strlen(input) is replaced with fuzz_input_length. We probably do not want to use strlen(fuzz_input) instead, because fuzz_input may not contain a '\0' character (you can fix this problem by explicitly setting the last character in the fuzz_input buffer to '\0') and calling strlen decreases the performance. This is less of a problem with maximum input lengths of 128 bytes, but consider fuzzing a desktop application that processes audio or video files, which can get very large. For LD_PRELOAD, the patches/exercise_parse.c.so shared object can be resued.</p>
 </details>
 
 [Optional] You can specify seeds for the fuzzer with the emulator command line flag '--seeds X' where X is the path to a directory. For every file in this directory, the content of this file is one seed. The mutator/fuzzer will modify seeds to generate new input. Good seeds will result in higher code coverage faster. Good seeds are often inputs that reach a higher code coverage. Think about where you can get seeds from.
@@ -403,7 +405,6 @@ ArduinoJson is a widely used and well tested library. You will very likely not f
 <li>There are also tools that generate inputs. For example concolic execution tools such as KLEE can output inputs that reach deeper paths in a program. There are fuzzers that have a built-in concolic execution tool. These are called hybrid fuzzers.</li>
 </details>
 
-
 # Emulator/Fuzzer Command Line Arguments and Environment Variables
 
 Names that start with '--' are command line arguments. Otherwise, it is an environment variable. 
@@ -411,9 +412,9 @@ Names that start with '--' are command line arguments. Otherwise, it is an envir
 Name | Description
 - | - | - | -
 LD\_PRELOAD | Path to your compiled software under test configuration file.
---seeds | Path to a directory. For every file in this directory, the content of this file is one seed.
 --run\_once\_with | Path to a file. Runs the emulator once. The input is the content of the specified file.
+--gdb | Enable built-in support for the GDB debugger.
+--seeds | Path to a directory. For every file in this directory, the content of this file is one seed.
 --timeout | One input times out when more than the specified 'timeout' number of clock cycles has passed since the emulator started or reset.
 --dont\_report\_timeouts | This is a flag. If this flag is not set, a timeout is treated as a bug, which means that the input that timed out is stored. If this flag is set, timeouts are not treated as bugs.
 --mutator\_so\_path | When you want to use another mutator. The default mutator is the mutator from libFuzzer.
---gdb | Enable built-in support for the GDB debugger.
