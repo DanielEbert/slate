@@ -4,8 +4,6 @@ title: API Reference
 toc_footers:
   - <a href='https://github.com/slatedocs/slate'>Documentation Powered by Slate</a>
 
-# TODO: include errors when e.g. elf symbol cant be found
-
 search: true
 
 code_clipboard: true
@@ -15,13 +13,11 @@ code_clipboard: true
 
 In this tutorial you will learn how to fuzz test software that runs in an emulator.
 
-If you are unfamiliar with mutation-based fuzzing, I would recommend that you read section 2.1 of this TODO paper to get an idea of what fuzzing and mutation-based fuzzing is.
+If you are unfamiliar with mutation-based fuzzing, I would recommend that you read section 2.1 of the paper located here: /home/user/Exercises/paper.pdf to get an idea of what fuzzing is.
 
 Prerequisites: Beginner-level experience with C/C++ and the Unix shell.
 
-TODO: reference relevant sections of my paper
-
-All following paths are relative to the base directory: TODO
+All following paths are relative to the base directory: ~/Exercises
 
 # Exercises 
 
@@ -64,7 +60,7 @@ Hello World..
 This exercise introduces you to the process of compiling and emulating. 
 
 <ol>
-<li>Write a simple arduino program that prints 'Hello World' via Serial. You can also use the example program on the right.</li>
+<li>Write a simple Arduino program that prints 'Hello World' via Serial. You can also use the example program on the right.</li>
 <li>Compile the program. One option is to compile via the arduino-cli. Compile for the 'atmega2560 board'. The emulator uses the 'atmega2560' board.</li>
 <li>Emulate the program. 'emu' is an alias for starting the emulator. The only required command line argument is the path to an ELF file that you want to emulate.</li>
 <li>You should see 'Hello World..' printed to the terminal.</li>
@@ -99,7 +95,7 @@ We can also run unit tests via PlatformIO's Unit Testing Framework. Compared to 
 This exercise shows you an example PlatformIO project setup, how PlatformIO-based projects are compiled, and how PlatformIO-based unit tests are run.
 
 <ol>
-<li>Take a look at the files in the 'TestPrograms/exercise_unit_test/' directory and its subdirectories.
+<li>Look at the files in the 'TestPrograms/exercise_unit_test/' directory and its subdirectories.
 <li>Can you already see how PlatformIO-based Unit Tests are compiled and emulated? Compile and run the unit tests in the emulator.</li>
 <li>Exit the emulation via &lt;CTRL&gt; + C</li>
 </ol>
@@ -143,7 +139,7 @@ The links below may help you. You can click on the 'Hint ...' buttons below to d
 
 <details style="margin: 20px; width: 48%">
   <summary>Hint 3 for emulating</summary>
-<p style="margin: 10px">Emulate an ELF file via: 'emu path/to/ELFfile'</p>
+<p style="margin: 10px">Emulate an ELF file via: 'emu PATH/TO/FILE.elf'</p>
 </details>
 
 <details style="margin: 20px; width: 48%">
@@ -186,14 +182,14 @@ OK.
 
 
 <ol>
-<li>Take a look at the src/main.cpp and test/test.cpp files in the 'TestPrograms/exercise_jump_foo/' directory. Get a quick overview of what the program is doing.</li>
+<li>Look at the src/main.cpp and test/test.cpp files in the 'TestPrograms/exercise_jump_foo/' directory. Get a quick overview of what the program is doing.</li>
 <li>After that, compile and run the unit test in the emulator.</li>
 <li>Exit the emulation via &lt;CTRL&gt; + C.</li>
 </ol>
 
-The emulator provides a C API where users can specify that the emulator should execute additional user-specified code when the emulator is about to emulate a particular function. This C API is accessed via C code. Open a new terminal and 'cd' into the 'patches' directory. In this directory, there is a file called 'example1.c'. 
+The emulator provides a C API where a user can specify that the emulator should execute additional user-specified code when the emulator is about to emulate a particular function. This C API is accessed via C code. Open a new terminal and 'cd' into the '~/Exercises/patches' directory. In this directory, there is a file called 'example1.c'. 
 
-With example1.c, when the emulated program calls the setup() function, the emulator calls the print_hello() function. The print_hello() functions runs 'outside' of the emulation. Take a quick look at the example1.c code. For these exercises, you dont need to understand how the `patch_function()` function works. 
+With example1.c, when the emulated program calls the setup() function, the emulator calls the print_hello() function. The print_hello() function runs 'outside' of the emulation. Take a quick look at the example1.c code. For these exercises, you don't need to understand how the `patch_function()` function works.
 
 <details style="margin: 20px; width: 48%">
   <summary>Optional reading - Click to show how more information about the C API</summary>
@@ -212,29 +208,29 @@ The API to specify user-specified code is via the patch_function function: <br>
 </tr>
 <tr>
 <td>&nbsp;function_name</td>
-<td>&nbsp;char *</td>
-<td>&nbsp;A function of the program that the emulator is emulating. For example the setup() or the loop() function.</td>
+<td>&nbsp;char*</td>
+<td>&nbsp;A function of the program that the emulator is emulating. For example, the setup() or the loop() function.</td>
 </tr>
 <tr>
 <td>&nbsp;function_pointer</td>
-<td>&nbsp;void *</td>
+<td>&nbsp;void*</td>
 <td>&nbsp;Prior to emulating the call of the function 'function_name', the emulator calls the function pointed to by the 'function_pointer' argument.</td>
 </tr>
 <tr>
 <td>&nbsp;function_argument</td>
-<td>&nbsp;void *</td>
+<td>&nbsp;void*</td>
 <td>&nbsp;Thereby the 'function_argument' argument is passed as a parameter to the 'function_pointer' function.</td>
 </tr>
 <tr>
 <td>&nbsp;avr</td>
-<td>&nbsp;avr_t *</td>
+<td>&nbsp;avr_t*</td>
 <td>&nbsp;This is always the 'avr' struct pointer that is passed to the setup_patches function as an argument. The patch_function implementation requires this.</td>
 </tr>
 </tbody>
 </table>
 
 <p style="margin: 20px">The 'avr' struct includes references (i.e. pointers) to emulator-internal data structures
-such as the (virual) RAM of the emulated program and to fuzzer-internal data structures
+such as the (virtual) RAM of the emulated program and to fuzzer-internal data structures
 such as the generated input.<br>
 </details>
 
@@ -307,7 +303,7 @@ LD_PRELOAD=../../patches/exercise_parse.c.so emu --max_input_length 6 .pio/build
 
 > Examine the files in the current\_run directory.
 
-The fuzzer can send updates about the current fuzzing campaign to a UI server. Open a new Terminal and run 'server/main_loop' to start this UI server.
+The fuzzer can send updates about the current fuzzing campaign to a UI server. Open a new Terminal and run 'cd ~/Exercises/server/ && ./main_loop' to start this UI server.
 
 Start the emulator with the exercise_parse.c.so shared object and the TestPrograms/exercise_jump_foo program. Additionally, specify a maximum input length of 6 via the 'emu' command line argument --max_input_length like so: 'LD_PRELOAD=../../patches/exercise_parse.c.so emu --max_input_length 6 .pio/build/megaatmega2560/firmware.elf'. The default maximum input length is 128. In this exercise, setting this maximum to 6 increases the code coverage faster.
 
@@ -316,7 +312,7 @@ The UI server creates the following directory structure:
 Path | Description
 - | -
 current\_run/ | Information about the current or most recent fuzzing run.
-current\_run/crashing\_inputs/ | Whenever a sanitizer or emulator detects a bug or crash, two files are created in this directory. The name of two files are for example 'stack\_buffer\_overflow\_200c' and 'stack\_buffer\_overflow\_200c\_info'. 'stack\_buffer\_overflow\_200c' contains the input that crashed the SUT. '\*\_info' contains the stack trace at the time when the crash or bug is detected.
+current\_run/crashing\_inputs/ | Whenever a sanitizer or emulator detects a bug or crash, two files are created in this directory. The name of two files is for example 'stack\_buffer\_overflow\_200c' and 'stack\_buffer\_overflow\_200c\_info'. 'stack\_buffer\_overflow\_200c' contains the input that crashed the SUT. '\*\_info' contains the stack trace at the time when the crash or bug is detected.
 current\_run/coverage.html | Coverage Explorer that show the SUT source code. Open this file in your browser. Executed lines have a green background. Have a look at the 'src/main.cpp' file (current_run/coverage.home_user_EFF_TestPrograms_delme2_src_main.cpp.html).
 current\_run/coverage\_over\_time\_plot.png | Edge coverage over time graph.
 current\_run/fuzer\_stats | Statistics about the fuzzing run, e.g. fuzzer runtime and number of bugs found.
@@ -395,7 +391,7 @@ Your task: Run the emulator once with the content of file crashing_input as the 
 
 You can now connect to the GDB server. First, opening a new terminal. Then, run the command 'avr-gdb X', where X is the path to the ELF executable that the emulator is currently emulating. In avr-gdb, connect via the gdb command 'target remote :1234'.
 
-At this moment, the emulated program is stopped at the first instruction of this emulated program and you can debug this program as if it is running locally. For example, we could set a breakpoint at the instruction where the crash is detected with 'break \*0xf50'. Then, we could continue the exection with the gdb command 'continue' in the avr-gdb terminal and output more information, for example the content of the registers with 'info registers' or examine the machine code instructions with 'x/10i $pc-10'. These machine code instructions are from the AVR instruction set architecture.
+At this moment, the emulated program is stopped at the first instruction of this emulated program, and you can debug this program as if it is running locally. For example, we could set a breakpoint at the instruction where the crash is detected with 'break \*0xf50'. Then, we could continue the execution with the gdb command 'continue' in the avr-gdb terminal and output more information, for example the content of the registers with 'info registers' or examine the machine code instructions with 'x/10i $pc-10'. These machine code instructions are from the AVR instruction set architecture.
 
 The buffer overflow occurs because strcpy writes more than 40 bytes to a buffer with a size of 40 bytes. The instruction at address 0xf50 overwrites the return address that is stored on the stack. The instruction at this address is 'st X+, r0', which stores the content of register r0 in X. X points to the return address on the stack. Overriding the return address is illegal.
 
@@ -417,7 +413,7 @@ ArduinoJson is a widely used and well tested library. You will very likely not f
 
 <details style="margin: 20px; width: 48%">
   <summary>Hint 1</summary>
-<p style="margin: 10px">If the input is randomly generated, assertions like 'TEST_ASSERT(ret == DeserializationError::Ok);' will not hold anymore for all possible inputs. With the LD_PRELOAD file exercise_parse.c.so the fuzzer does not report failed assertions. For this reason, failed assertions do not matter in this case. In practice, you would remove assertions in your unit test that do not hold for all possible generated inputs and you would report inputs that trigger failed assertions.</p>
+<p style="margin: 10px">If the input is randomly generated, assertions like 'TEST_ASSERT(ret == DeserializationError::Ok);' will not hold anymore for all possible inputs. With the LD_PRELOAD file exercise_parse.c.so the fuzzer does not report failed assertions. For this reason, failed assertions do not matter in this case. In practice, you would remove assertions in your unit test that do not hold for all possible generated inputs, and you would report inputs that trigger failed assertions.</p>
 </details>
 
 <details style="margin: 20px; width: 48%">
@@ -431,7 +427,7 @@ ArduinoJson is a widely used and well tested library. You will very likely not f
   <summary>Solution - Click here to show possible sources for seeds</summary>
 <ol>
 <li>Google example inputs. For example there are Github repositories like <a href="https://github.com/dvyukov/go-fuzz-corpus/tree/master/json/corpus">this</a> that have seeds for fuzzing.</li>
-<li>Reuse interesting inputs that the fuzzer found in a previous test of the same or a similar program. These are in the current\_run/previous\_interesting\_inputs/ directory.</li>
+<li>Reuse interesting inputs that the fuzzer found in a previous test of the same or a similar program. These are in the current_run/previous_interesting_inputs/ directory.</li>
 <li>You can manually review the code and identify roadblocks. Roadblocks are input checks that no input from the fuzzer has passed yet. You can add inputs to the seeds that pass this roadblock.</li>
 <li>There are also tools that generate inputs. For example concolic execution tools such as KLEE can output inputs that reach deeper paths in a program. There are fuzzers that have a built-in concolic execution tool. These are called hybrid fuzzers.</li>
 </details>
